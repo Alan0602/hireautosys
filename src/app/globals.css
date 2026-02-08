@@ -1,0 +1,454 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: var(--font-dm-sans);
+  --font-heading: var(--font-outfit);
+  --font-mono: var(--font-jetbrains-mono);
+
+  /* Color Mappings */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary-500);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* Radius */
+  --radius-lg: 1.5rem;
+  --radius-md: 1rem;
+  --radius-sm: 0.75rem;
+  --radius-full: 9999px;
+  --radius-xl: var(--radius-xl);
+  --radius-2xl: var(--radius-2xl);
+}
+
+:root {
+  /* ============================================
+     FONT FAMILIES
+     ============================================ */
+  --font-dm-sans: "DM Sans", sans-serif;
+  --font-outfit: "Outfit", sans-serif;
+  --font-jetbrains-mono: "JetBrains Mono", monospace;
+
+  /* ============================================
+     PRIMARY COLORS (Blue-Violet Spectrum)
+     ============================================ */
+  --primary-50: #F0F4FF;
+  --primary-100: #E0E7FF;
+  --primary-200: #C7D2FE;
+  --primary-300: #A5B4FC;
+  --primary-400: #818CF8;
+  --primary-500: #6366F1;
+  --primary-600: #4F46E5;
+  --primary-700: #4338CA;
+  --primary-800: #3730A3;
+  --primary-900: #312E81;
+
+  /* ============================================
+     NEUTRAL COLORS (Sophisticated Grays)
+     ============================================ */
+  --neutral-50: #FAFAFA;
+  --neutral-100: #F4F4F5;
+  --neutral-200: #E4E4E7;
+  --neutral-300: #D4D4D8;
+  --neutral-400: #A1A1AA;
+  --neutral-500: #71717A;
+  --neutral-600: #52525B;
+  --neutral-700: #3F3F46;
+  --neutral-800: #27272A;
+  --neutral-900: #18181B;
+
+  /* ============================================
+     SEMANTIC COLORS
+     ============================================ */
+  /* Success - Matching/Approved */
+  --success: #10B981;
+  --success-light: #D1FAE5;
+  --success-foreground: #FFFFFF;
+
+  /* Warning - Needs Review */
+  --warning: #F59E0B;
+  --warning-light: #FEF3C7;
+  --warning-foreground: #FFFFFF;
+
+  /* Error - Rejected */
+  --error: #EF4444;
+  --error-light: #FEE2E2;
+  --error-foreground: #FFFFFF;
+
+  /* Info - Neutral Information */
+  --info: #3B82F6;
+  --info-light: #DBEAFE;
+  --info-foreground: #FFFFFF;
+
+  /* ============================================
+     ACCENT COLORS (Data Visualization)
+     ============================================ */
+  --accent-1: #8B5CF6;
+  /* Purple */
+  --accent-2: #EC4899;
+  /* Pink */
+  --accent-3: #14B8A6;
+  /* Teal */
+  --accent-4: #F97316;
+  /* Orange */
+
+  /* ============================================
+     THEME COLORS (Light Mode Base)
+     ============================================ */
+  --background: var(--neutral-50);
+  --foreground: var(--neutral-900);
+
+  --primary: var(--primary-500);
+  --primary-foreground: #FFFFFF;
+
+  --secondary: var(--neutral-100);
+  --secondary-foreground: var(--neutral-900);
+
+  --muted: var(--neutral-100);
+  --muted-foreground: var(--neutral-500);
+
+  --accent: var(--neutral-100);
+  --accent-foreground: var(--neutral-900);
+
+  --destructive: var(--error);
+  --destructive-foreground: var(--error-foreground);
+
+  --border: var(--neutral-200);
+  --input: var(--neutral-200);
+  --ring: var(--primary-500);
+
+  /* ============================================
+     SPACING SYSTEM (4px baseline grid)
+     ============================================ */
+  --spacing-1: 0.25rem;
+  /* 4px */
+  --spacing-2: 0.5rem;
+  /* 8px */
+  --spacing-3: 0.75rem;
+  /* 12px */
+  --spacing-4: 1rem;
+  /* 16px */
+  --spacing-5: 1.25rem;
+  /* 20px */
+  --spacing-6: 1.5rem;
+  /* 24px */
+  --spacing-8: 2rem;
+  /* 32px */
+  --spacing-10: 2.5rem;
+  /* 40px */
+  --spacing-12: 3rem;
+  /* 48px */
+  --spacing-16: 4rem;
+  /* 64px */
+  --spacing-20: 5rem;
+  /* 80px */
+  --spacing-24: 6rem;
+  /* 96px */
+
+  /* ============================================
+     BORDER RADIUS
+     ============================================ */
+  --radius-sm: 0.375rem;
+  /* 6px - Buttons, inputs */
+  --radius-md: 0.5rem;
+  /* 8px - Cards */
+  --radius-lg: 0.75rem;
+  /* 12px - Modals */
+  --radius-xl: 1rem;
+  /* 16px - Large cards */
+  --radius-2xl: 1.5rem;
+  /* 24px - Hero sections */
+  --radius-full: 9999px;
+  /* Pills, avatars */
+
+  /* ============================================
+     SHADOWS & DEPTH
+     ============================================ */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1);
+  --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+  --shadow-colored: 0 8px 16px 0 rgba(99, 102, 241, 0.15);
+}
+
+/* ============================================
+   DARK MODE
+   ============================================ */
+.dark {
+  --background: #09090B;
+  --foreground: var(--neutral-50);
+
+  --primary: var(--primary-500);
+  --primary-foreground: #FFFFFF;
+
+  --secondary: var(--neutral-800);
+  --secondary-foreground: var(--neutral-50);
+
+  --muted: var(--neutral-800);
+  --muted-foreground: var(--neutral-400);
+
+  --accent: var(--neutral-800);
+  --accent-foreground: var(--neutral-50);
+
+  --destructive: #7F1D1D;
+  --destructive-foreground: var(--neutral-50);
+
+  --border: var(--neutral-800);
+  --input: var(--neutral-800);
+  --ring: var(--primary-400);
+
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.4);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.5);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.6);
+  --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.7);
+  --shadow-colored: 0 8px 16px 0 rgba(99, 102, 241, 0.25);
+}
+
+/* ============================================
+   BASE STYLES
+   ============================================ */
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  /* Typography Hierarchy */
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-heading);
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+  }
+
+  h1 {
+    font-size: 2.5rem;
+    /* 40px */
+  }
+
+  h2 {
+    font-size: 2rem;
+    /* 32px */
+  }
+
+  h3 {
+    font-size: 1.5rem;
+    /* 24px */
+  }
+
+  h4 {
+    font-size: 1.25rem;
+    /* 20px */
+  }
+
+  h5 {
+    font-size: 1.125rem;
+    /* 18px */
+  }
+
+  h6 {
+    font-size: 1rem;
+    /* 16px */
+  }
+
+  .display {
+    font-size: 3.5rem;
+    /* 56px */
+    font-family: var(--font-heading);
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: -0.03em;
+  }
+}
+
+/* ============================================
+   UTILITY CLASSES
+   ============================================ */
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* Glassmorphism Utilities */
+  .glass-card {
+    @apply bg-white/70 dark:bg-black/70 backdrop-blur-xl border border-white/20 dark:border-white/10 shadow-xl;
+  }
+
+  .glass-panel {
+    @apply bg-background/60 backdrop-blur-2xl border-r border-border/50;
+  }
+
+  /* Gradient Mesh Background */
+  .gradient-mesh {
+    background:
+      radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.1) 0px, transparent 50%),
+      radial-gradient(at 100% 0%, rgba(236, 72, 153, 0.1) 0px, transparent 50%),
+      radial-gradient(at 100% 100%, rgba(139, 92, 246, 0.1) 0px, transparent 50%),
+      radial-gradient(at 0% 100%, rgba(59, 130, 246, 0.1) 0px, transparent 50%);
+  }
+
+  .dark .gradient-mesh {
+    background:
+      radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
+      radial-gradient(at 100% 0%, rgba(236, 72, 153, 0.15) 0px, transparent 50%),
+      radial-gradient(at 100% 100%, rgba(139, 92, 246, 0.15) 0px, transparent 50%),
+      radial-gradient(at 0% 100%, rgba(59, 130, 246, 0.15) 0px, transparent 50%);
+  }
+
+  /* Smooth Scrolling */
+  .smooth-scroll {
+    scroll-behavior: smooth;
+  }
+
+  /* Hide Scrollbar */
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+/* ============================================
+   ANIMATIONS
+   ============================================ */
+@layer utilities {
+  @keyframes shimmer {
+    0% {
+      background-position: -1000px 0;
+    }
+
+    100% {
+      background-position: 1000px 0;
+    }
+  }
+
+  @keyframes ripple {
+    to {
+      transform: scale(4);
+      opacity: 0;
+    }
+  }
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes slide-in-up {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes slide-in-down {
+    from {
+      opacity: 0;
+      transform: translateY(-20px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes scale-in {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  .animate-shimmer {
+    background: linear-gradient(90deg,
+        transparent 25%,
+        rgba(255, 255, 255, 0.5) 50%,
+        transparent 75%);
+    background-size: 1000px 100%;
+    animation: shimmer 2s infinite;
+  }
+
+  .dark .animate-shimmer {
+    background: linear-gradient(90deg,
+        transparent 25%,
+        rgba(255, 255, 255, 0.1) 50%,
+        transparent 75%);
+    background-size: 1000px 100%;
+  }
+
+  .animate-fade-in {
+    animation: fade-in 0.3s ease-out;
+  }
+
+  .animate-slide-in-up {
+    animation: slide-in-up 0.4s ease-out;
+  }
+
+  .animate-slide-in-down {
+    animation: slide-in-down 0.4s ease-out;
+  }
+
+  .animate-scale-in {
+    animation: scale-in 0.2s ease-out;
+  }
+
+  /* Skeleton Loading */
+  .skeleton {
+    background: linear-gradient(90deg,
+        transparent 25%,
+        rgba(0, 0, 0, 0.1) 50%,
+        transparent 75%);
+    background-size: 1000px 100%;
+    animation: shimmer 2s infinite;
+    background-color: var(--neutral-200);
+  }
+
+  .dark .skeleton {
+    background: linear-gradient(90deg,
+        transparent 25%,
+        rgba(255, 255, 255, 0.1) 50%,
+        transparent 75%);
+    background-size: 1000px 100%;
+    background-color: var(--neutral-800);
+  }
+}
