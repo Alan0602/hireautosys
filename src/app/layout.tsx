@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { DM_Sans, Outfit, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
+import { Providers } from "./providers";
+import { Toaster } from "@/components/ui/sonner";
 
 const dmSans = DM_Sans({
     subsets: ["latin"],
@@ -42,7 +44,10 @@ export default function RootLayout({
                     enableSystem
                     disableTransitionOnChange
                 >
-                    {children}
+                    <Providers>
+                        {children}
+                    </Providers>
+                    <Toaster />
                 </ThemeProvider>
             </body>
         </html>
