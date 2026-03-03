@@ -7,7 +7,7 @@ import { DashboardHeader } from "@/components/dashboard/header"
 export default function HRSettingsPage() {
     return (
         <div className="flex min-h-screen">
-            <DashboardSidebar userRole="hr" />
+            <DashboardSidebar />
             <div className="flex-1">
                 <DashboardHeader title="Settings" />
                 <GenericDashboardContent
