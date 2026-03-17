@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { GoogleGenAI } from "@google/genai";
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
 
 // Persona-based prompting constants for HR modes
 const PERSONAS = {
@@ -7,8 +9,54 @@ const PERSONAS = {
     ATS_EXPERT: "You are a specialized Applicant Tracking System (ATS) optimization expert. You analyze resumes against job descriptions with extreme precision, focusing on skill matching, experience relevance, and potential candidate fit."
 };
 
+// In-memory rate limiting
+const rateLimitMap = new Map<string, { count: number, resetTime: number }>();
+const RATE_LIMIT_MAX = 10;
+const RATE_LIMIT_WINDOW_MS = 60 * 1000;
+
 export async function POST(req: Request) {
     try {
+        const cookieStore = await cookies();
+        const supabase = createServerClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.SUPABASE_SERVICE_ROLE_KEY!,
+            {
+                cookies: {
+                    getAll() { return cookieStore.getAll(); },
+                    setAll(cookiesToSet) {
+                        try {
+                            cookiesToSet.forEach(({ name, value, options }) =>
+                                cookieStore.set(name, value, options)
+                            );
+                        } catch {}
+                    },
+                },
+            }
+        );
+
+        const { data: { session }, error: authError } = await supabase.auth.getSession();
+        if (authError || !session) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
+        const userId = session.user.id;
+        const now = Date.now();
+        const userRateLimit = rateLimitMap.get(userId);
+
+        if (userRateLimit) {
+            if (now > userRateLimit.resetTime) {
+                rateLimitMap.set(userId, { count: 1, resetTime: now + RATE_LIMIT_WINDOW_MS });
+            } else {
+                if (userRateLimit.count >= RATE_LIMIT_MAX) {
+                    return NextResponse.json({ error: "Too many requests. Please wait before trying again." }, { status: 429 });
+                }
+                userRateLimit.count += 1;
+                rateLimitMap.set(userId, userRateLimit);
+            }
+        } else {
+            rateLimitMap.set(userId, { count: 1, resetTime: now + RATE_LIMIT_WINDOW_MS });
+        }
+
         const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
         if (!apiKey) {
             return NextResponse.json(
