@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
+import { toast } from "sonner"
 
 export default function ApplicationReviewPage() {
     const params = useParams()
@@ -24,6 +25,10 @@ export default function ApplicationReviewPage() {
     const [isRejectDialogOpen, setIsRejectDialogOpen] = React.useState(false)
     const [rejectReason, setRejectReason] = React.useState("")
     const [isProcessing, setIsProcessing] = React.useState(false)
+
+    // Email UI State
+    const [emailError, setEmailError] = React.useState(false)
+    const [lastEmailPayload, setLastEmailPayload] = React.useState<any>(null)
 
     // Resume preview state
     const [resumeSignedUrl, setResumeSignedUrl] = React.useState<string | null>(null)
@@ -58,22 +63,76 @@ export default function ApplicationReviewPage() {
         }
     }
 
+    const triggerEmail = async (payload: any) => {
+        try {
+            setEmailError(false)
+            const res = await fetch('/api/send-email', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            if (!res.ok) throw new Error('Failed to send email')
+            return true
+        } catch {
+            setEmailError(true)
+            setLastEmailPayload(payload)
+            return false
+        }
+    }
+
     const handleReject = async () => {
         if (!application) return
         setIsProcessing(true)
-        await updateApplicationStatus(application.id, 'rejected', rejectReason)
+        const success = await updateApplicationStatus(application.id, 'rejected', rejectReason)
+        if (success) {
+            const payload = {
+                applicationId: application.id,
+                candidateName: application.candidateName,
+                candidateEmail: application.candidateEmail,
+                status: 'rejected'
+            }
+            const emailSuccess = await triggerEmail(payload)
+            if (emailSuccess) {
+                toast.success("Email sent to candidate.")
+                router.push(`/hr/jobs/${application.jobId}/applications`)
+            } else {
+                toast.error("Status updated, but email failed to send. Please retry.")
+            }
+        }
         setIsProcessing(false)
         setIsRejectDialogOpen(false)
-        router.push(`/hr/jobs/${application.jobId}/applications`)
     }
 
     const handleAccept = async () => {
         if (!application) return
         setIsProcessing(true)
+        let newStatus = ''
+        let emailType = ''
+
         if (application.status === 'pending') {
-            await updateApplicationStatus(application.id, 'hr_approve')
+            newStatus = 'hr_approve'
+            emailType = 'selected'
         } else if (application.status === 'teamlead_approve') {
-            await updateApplicationStatus(application.id, 'ready_for_checkin')
+            newStatus = 'ready_for_checkin'
+            emailType = 'interview'
+        }
+
+        if (newStatus) {
+            const success = await updateApplicationStatus(application.id, newStatus)
+            if (success && emailType) {
+                const payload = {
+                    applicationId: application.id,
+                    candidateName: application.candidateName,
+                    candidateEmail: application.candidateEmail,
+                    status: emailType
+                }
+                const emailSuccess = await triggerEmail(payload)
+                if (emailSuccess) {
+                    toast.success("Email sent to candidate.")
+                } else {
+                    toast.error("Status updated, but email failed to send. Please retry.")
+                }
+            }
         }
         setIsProcessing(false)
     }
@@ -140,6 +199,20 @@ export default function ApplicationReviewPage() {
                                     <Badge variant="outline">{application.status.replace(/_/g, ' ').toUpperCase()}</Badge>
                                     <Badge variant="outline">Applied {new Date(application.createdAt).toLocaleDateString()}</Badge>
                                 </div>
+
+                                {emailError && lastEmailPayload && (
+                                    <div className="p-3 border border-red-200 bg-red-50 dark:bg-red-900/20 dark:border-red-800 rounded-md text-sm text-red-800 dark:text-red-200 flex flex-col gap-2">
+                                        <span>Status updated, but email failed to send. Please retry.</span>
+                                        <Button size="sm" variant="outline" className="w-fit" onClick={async () => {
+                                            const success = await triggerEmail(lastEmailPayload)
+                                            if (success) {
+                                                toast.success("Email sent to candidate.")
+                                            } else {
+                                                toast.error("Email failed again.")
+                                            }
+                                        }}>Retry Email</Button>
+                                    </div>
+                                )}
 
                                 {/* Resume Preview Button */}
                                 <div className="pt-2 border-t">

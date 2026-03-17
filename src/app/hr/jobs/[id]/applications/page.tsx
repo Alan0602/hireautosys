@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useJobStore } from "@/store/job-store"
 import { ArrowLeft, Search, Filter, Calendar, BarChart, ChevronRight } from "lucide-react"
+import { toast } from "sonner"
 
 export default function JobApplicationsPage() {
     const params = useParams()
@@ -18,21 +19,39 @@ export default function JobApplicationsPage() {
     const { jobs, applications, getJobBySlug, getApplicationsByJob, updateApplicationStatus, isLoading } = useJobStore()
     const [searchTerm, setSearchTerm] = useState("")
 
-    // params.id is actually the SLUG based on file structure? 
-    // Wait, the folder is [id], but in page.tsx I see `params.slug` usage in previous code?
-    // Let's check `hr/jobs/page.tsx` links.
-    // The previous implementation had no specific applications list page.
-    // I am CREATING `hr/jobs/[id]/applications/page.tsx`.
-    // If I link using ID, then params.id is ID.
-    // I should check what I will use in `hr/jobs/page.tsx` link.
-    // Ideally use Job ID for stability, or Slug for URL prettiness.
-    // Let's use ID as the folder is named [id].
-
     const jobId = params.id as string
     const job = jobs.find(j => j.id === jobId)
 
     const handleUpdateStatus = async (appId: string, status: any) => {
-        await updateApplicationStatus(appId, status)
+        const success = await updateApplicationStatus(appId, status)
+        if (success) {
+            const app = applications.find(a => a.id === appId)
+            if (app) {
+                let emailType = ''
+                if (status === 'hr_approve' || status === 'hired') emailType = 'selected'
+                else if (status === 'rejected') emailType = 'rejected'
+                else if (status === 'ready_for_checkin') emailType = 'interview'
+                
+                if (emailType) {
+                    try {
+                        const res = await fetch('/api/send-email', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                applicationId: app.id,
+                                candidateName: app.candidateName,
+                                candidateEmail: app.candidateEmail,
+                                status: emailType
+                            })
+                        })
+                        if (!res.ok) throw new Error('Failed to send email')
+                        toast.success("Email sent to candidate.")
+                    } catch {
+                        toast.error("Status updated, but email failed to send. Please visit the application details page to retry.")
+                    }
+                }
+            }
+        }
     }
 
     useEffect(() => {

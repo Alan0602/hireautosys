@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Sparkles, Loader2, X, MessageSquare, Briefcase, FileText } from "lucide-react"
@@ -17,6 +17,7 @@ export function AIAssistant({ mode, initialData, placeholder }: AIAssistantProps
     const [isLoading, setIsLoading] = useState(false)
     const [feedback, setFeedback] = useState<any>(null)
     const [query, setQuery] = useState("")
+    const aiCache = useRef<Map<string, any>>(new Map()) // Added cache reference
 
     const handleGetHelp = async () => {
         setIsLoading(true)
@@ -28,6 +29,14 @@ export function AIAssistant({ mode, initialData, placeholder }: AIAssistantProps
                 query: mode === "general_hr_help" ? query : undefined
             }
 
+            // Create a unique cache key for session-scoped caching
+            const cacheKey = `${initialData?.id || initialData?.jobId || 'global'}-${mode}-${query.trim()}`;
+
+            if (aiCache.current.has(cacheKey)) {
+                setFeedback(aiCache.current.get(cacheKey));
+                return;
+            }
+
             const response = await fetch("/api/ai/assist", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -35,6 +44,7 @@ export function AIAssistant({ mode, initialData, placeholder }: AIAssistantProps
             })
 
             const data = await response.json()
+            aiCache.current.set(cacheKey, data.feedback);
             setFeedback(data.feedback)
         } catch (error) {
             console.error("AI Error:", error)
