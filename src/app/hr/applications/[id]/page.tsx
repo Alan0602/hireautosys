@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { useParams, useRouter } from "next/navigation"
-import { ArrowLeft, Download, ExternalLink, ThumbsUp, ThumbsDown, MessageSquare, Calendar } from "lucide-react"
+import { ArrowLeft, Download, ExternalLink, ThumbsUp, ThumbsDown, FileText, Calendar, X } from "lucide-react"
 import { useJobStore, Application } from "@/store/job-store"
 import { useAuthStore } from "@/store/auth-store"
 import { DashboardSidebar } from "@/components/dashboard/sidebar"
@@ -11,21 +11,24 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-// import { ScrollArea } from "@/components/ui/scroll-area" // Unused currently, commenting out or keeping if needed. I'll keep it import if it was there.
 
 export default function ApplicationReviewPage() {
     const params = useParams()
     const router = useRouter()
 
     const { currentUser } = useAuthStore()
-    const { applications, jobs, getApplicationsByOrg, getJobsByOrg, updateApplicationStatus } = useJobStore()
+    const { applications, jobs, getApplicationsByOrg, getJobsByOrg, updateApplicationStatus, getResumeSignedUrl } = useJobStore()
     const [application, setApplication] = React.useState<Application | null>(null)
 
     // UI State
     const [isRejectDialogOpen, setIsRejectDialogOpen] = React.useState(false)
     const [rejectReason, setRejectReason] = React.useState("")
     const [isProcessing, setIsProcessing] = React.useState(false)
+
+    // Resume preview state
+    const [resumeSignedUrl, setResumeSignedUrl] = React.useState<string | null>(null)
+    const [isResumeModalOpen, setIsResumeModalOpen] = React.useState(false)
+    const [isLoadingResume, setIsLoadingResume] = React.useState(false)
 
     React.useEffect(() => {
         if (currentUser?.organisationId) {
@@ -40,6 +43,20 @@ export default function ApplicationReviewPage() {
             if (found) setApplication(found)
         }
     }, [params.id, applications])
+
+    const handleOpenResume = async () => {
+        if (!application?.resumeUrl) return
+        setIsLoadingResume(true)
+        try {
+            const url = await getResumeSignedUrl(application.resumeUrl)
+            if (url) {
+                setResumeSignedUrl(url)
+                setIsResumeModalOpen(true)
+            }
+        } finally {
+            setIsLoadingResume(false)
+        }
+    }
 
     const handleReject = async () => {
         if (!application) return
@@ -76,6 +93,7 @@ export default function ApplicationReviewPage() {
     }
 
     const job = jobs.find(j => j.id === application.jobId)
+    const hasResume = application.resumeUrl && application.resumeUrl.includes('/')
 
     return (
         <div className="flex min-h-screen">
@@ -123,7 +141,25 @@ export default function ApplicationReviewPage() {
                                     <Badge variant="outline">Applied {new Date(application.createdAt).toLocaleDateString()}</Badge>
                                 </div>
 
-                                <div className="pt-4 border-t space-y-2">
+                                {/* Resume Preview Button */}
+                                <div className="pt-2 border-t">
+                                    <Button
+                                        variant="outline"
+                                        className="w-full"
+                                        onClick={handleOpenResume}
+                                        disabled={!hasResume || isLoadingResume}
+                                    >
+                                        <FileText className="mr-2 h-4 w-4" />
+                                        {isLoadingResume ? 'Loading...' : hasResume ? 'Preview Resume' : 'No Resume Uploaded'}
+                                    </Button>
+                                    {hasResume && (
+                                        <p className="text-xs text-muted-foreground text-center mt-1">
+                                            Opens a secure PDF preview
+                                        </p>
+                                    )}
+                                </div>
+
+                                <div className="pt-2 border-t space-y-2">
                                     {application.status !== 'rejected' && application.status !== 'hired' && (
                                         <div className="grid grid-cols-2 gap-2">
                                             {(application.status === 'pending' || application.status === 'teamlead_approve') && (
@@ -173,7 +209,7 @@ export default function ApplicationReviewPage() {
                             </CardHeader>
                             <CardContent className="space-y-4 text-sm">
                                 <div>
-                                    <h4 className="font-semibold mb-1">Strengths</h4>
+                                    <h4 className="font-semibold mb-1">Matched Skills</h4>
                                     <ul className="list-disc pl-4 space-y-1 text-muted-foreground">
                                         {application.skillsFound.map((skill, i) => (
                                             <li key={i}>{skill}</li>
@@ -194,56 +230,49 @@ export default function ApplicationReviewPage() {
                         </Card>
                     </div>
 
-                    {/* Right Column: Resume Preview */}
+                    {/* Right Column: Resume Info */}
                     <div className="col-span-12 lg:col-span-8 h-full min-h-[500px]">
                         <Card className="h-full flex flex-col">
                             <CardHeader className="border-b py-4">
                                 <div className="flex items-center justify-between">
-                                    <Tabs defaultValue="resume" className="w-[400px]">
-                                        <TabsList>
-                                            <TabsTrigger value="resume">Resume</TabsTrigger>
-                                            <TabsTrigger value="cover-letter">Cover Letter</TabsTrigger>
-                                            <TabsTrigger value="notes">Team Notes</TabsTrigger>
-                                        </TabsList>
-                                    </Tabs>
+                                    <CardTitle>Resume</CardTitle>
                                     <div className="flex gap-2">
-                                        <Button size="icon" variant="ghost">
-                                            <Download className="h-4 w-4" />
-                                        </Button>
-                                        <Button size="icon" variant="ghost">
-                                            <ExternalLink className="h-4 w-4" />
-                                        </Button>
+                                        {hasResume && (
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={handleOpenResume}
+                                                disabled={isLoadingResume}
+                                            >
+                                                <FileText className="h-4 w-4 mr-2" />
+                                                {isLoadingResume ? 'Loading...' : 'Open Preview'}
+                                            </Button>
+                                        )}
                                     </div>
                                 </div>
                             </CardHeader>
-                            <CardContent className="flex-1 p-0 bg-neutral-100 dark:bg-neutral-900 overflow-hidden relative">
-                                <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground">
-                                    <div className="w-[80%] h-[90%] bg-white dark:bg-card shadow-lg p-12 overflow-y-auto text-left">
-                                        <div className="border-b pb-8 mb-8">
-                                            <h1 className="text-3xl font-bold text-foreground">{application.candidateName}</h1>
-                                            <p className="text-lg text-muted-foreground mt-2">Candidate for {job?.title}</p>
-                                            <div className="flex gap-4 mt-4 text-sm">
-                                                <span>{application.candidateEmail}</span>
-                                                <span>•</span>
-                                                <span>Applied via Portal</span>
-                                            </div>
+                            <CardContent className="flex-1 flex flex-col items-center justify-center gap-4 bg-neutral-100 dark:bg-neutral-900 p-8">
+                                {hasResume ? (
+                                    <>
+                                        <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center">
+                                            <FileText className="h-10 w-10 text-primary" />
                                         </div>
-
-                                        <div className="space-y-8">
-                                            <section>
-                                                <h3 className="text-lg font-bold border-b pb-2 mb-4 uppercase tracking-wider">Experience & Skills</h3>
-                                                <p className="text-sm text-muted-foreground mb-4">
-                                                    (Resume content would be displayed here from {application.resumeUrl})
-                                                </p>
-                                                <div className="flex flex-wrap gap-2">
-                                                    {application.skillsFound.map(skill => (
-                                                        <Badge variant="secondary" key={skill} className="font-normal">{skill}</Badge>
-                                                    ))}
-                                                </div>
-                                            </section>
+                                        <div className="text-center">
+                                            <p className="font-semibold text-foreground mb-1">{application.candidateName}'s Resume</p>
+                                            <p className="text-sm text-muted-foreground mb-4">PDF — Stored securely in Supabase Storage</p>
+                                            <Button onClick={handleOpenResume} disabled={isLoadingResume} className="shadow">
+                                                <FileText className="mr-2 h-4 w-4" />
+                                                {isLoadingResume ? 'Loading...' : 'Preview PDF'}
+                                            </Button>
                                         </div>
+                                    </>
+                                ) : (
+                                    <div className="text-center text-muted-foreground">
+                                        <FileText className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                                        <p className="font-medium">No resume available</p>
+                                        <p className="text-sm mt-1">This candidate submitted their application before file upload was enabled.</p>
                                     </div>
-                                </div>
+                                )}
                             </CardContent>
                         </Card>
                     </div>
@@ -274,6 +303,55 @@ export default function ApplicationReviewPage() {
                                 </div>
                             </CardContent>
                         </Card>
+                    </div>
+                )}
+
+                {/* Resume Preview Modal */}
+                {isResumeModalOpen && resumeSignedUrl && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+                        <div className="bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl w-full max-w-4xl h-[90vh] flex flex-col overflow-hidden">
+                            {/* Modal Header */}
+                            <div className="flex items-center justify-between px-6 py-4 border-b">
+                                <div className="flex items-center gap-3">
+                                    <FileText className="h-5 w-5 text-primary" />
+                                    <div>
+                                        <p className="font-semibold text-foreground">{application.candidateName}'s Resume</p>
+                                        <p className="text-xs text-muted-foreground">Secure preview — link expires in 1 hour</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <a
+                                        href={resumeSignedUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md border hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+                                    >
+                                        <ExternalLink className="h-3.5 w-3.5" />
+                                        Open in Tab
+                                    </a>
+                                    <a
+                                        href={resumeSignedUrl}
+                                        download
+                                        className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md border hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+                                    >
+                                        <Download className="h-3.5 w-3.5" />
+                                        Download
+                                    </a>
+                                    <Button size="icon" variant="ghost" onClick={() => setIsResumeModalOpen(false)}>
+                                        <X className="h-5 w-5" />
+                                    </Button>
+                                </div>
+                            </div>
+
+                            {/* PDF Iframe */}
+                            <div className="flex-1 bg-neutral-100 dark:bg-neutral-950">
+                                <iframe
+                                    src={`${resumeSignedUrl}#toolbar=1&navpanes=0`}
+                                    className="w-full h-full border-0"
+                                    title={`${application.candidateName}'s Resume`}
+                                />
+                            </div>
+                        </div>
                     </div>
                 )}
             </div>
