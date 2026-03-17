@@ -13,6 +13,7 @@ import {
     Plus, MapPin, Clock, Users, ExternalLink, Briefcase,
     Calendar, Target
 } from "lucide-react"
+import { AIAssistant } from "@/components/ai/ai-assistant"
 
 export default function HRJobsPage() {
     const { currentUser } = useAuthStore()
@@ -166,6 +167,10 @@ export default function HRJobsPage() {
                         </Card>
                     )}
                 </main>
+                <AIAssistant 
+                    mode="job_description" 
+                    placeholder="Provide a job title and key requirements to get help with job descriptions..."
+                />
             </div >
         </div >
     )
