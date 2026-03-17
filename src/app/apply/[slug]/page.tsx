@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useRef } from "react"
 import { useParams } from "next/navigation"
+import { toast } from "sonner"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -61,19 +62,29 @@ export default function JobApplicationPage() {
         e.preventDefault()
         if (!job || !email || !resumeFile || !agreedTerms) return
 
+        // Client-side file validation
+        if (resumeFile.size > 5 * 1024 * 1024) {
+            toast.error('File too large. Max size is 5MB.')
+            return
+        }
+        if (resumeFile.type !== 'application/pdf') {
+            toast.error('Only PDF files are accepted.')
+            return
+        }
+
         setPageState('processing')
 
         // Step 1: Upload simulation
         setProcessingStep("Uploading resume...")
-        await new Promise(r => setTimeout(r, 1000))
+        await new Promise(r => setTimeout(r, 800))
 
         // Step 2: Extracting text simulation
         setProcessingStep("Extracting resume content...")
-        await new Promise(r => setTimeout(r, 800))
+        await new Promise(r => setTimeout(r, 600))
 
         // Step 3: ATS analysis
         setProcessingStep("Running AI analysis...")
-        // Simulate resume text from file name (in real app, would OCR/parse PDF)
+        // Use filename + job skills as mock resume text for AI analysis
         const mockResumeText = `${resumeFile.name} experienced developer with skills in ${job.skills.slice(0, Math.ceil(job.skills.length * 0.6)).join(', ')} and other technologies`
         const result = await analyzeApplication(job.skills, mockResumeText)
         setAtsResult(result)
@@ -82,21 +93,21 @@ export default function JobApplicationPage() {
         const didPass = result.score >= job.atsThreshold
         setPassed(didPass)
 
-        // Save application
+        setProcessingStep("Saving application...")
+
+        // Save application — pass the actual resumeFile ONLY if the candidate passed
+        // This prevents wasting Supabase Storage space on rejected applications
         const app = await submitApplication({
             jobId: job.id,
-            candidateName: email.split('@')[0], // Simple name extraction or add name field
+            candidateName: email.split('@')[0],
             candidateEmail: email,
-            resumeUrl: resumeFile.name, // In real app, this would be a URL from storage
+            resumeUrl: didPass ? resumeFile.name : '', // fallback filename if passed, else empty
             atsScore: result.score,
             skillsFound: result.skillsFound,
             missingSkills: result.missingSkills,
             tips: result.tips,
             status: didPass ? 'pending' : 'rejected',
-            // The store will handle status. I passed 'passed'/'failed' earlier.
-            // Let's stick to what the store expects or what I added ('passed').
-            // I added 'passed' to interface.
-        })
+        }, didPass ? resumeFile : undefined) // Conditionally pass actual File for upload
 
         if (app) {
             setCreatedAppId(app.id)
