@@ -3,6 +3,7 @@
 import GenericDashboardContent from "@/components/dashboard/generic-content"
 import { DashboardSidebar } from "@/components/dashboard/sidebar"
 import { DashboardHeader } from "@/components/dashboard/header"
+import { AIAssistant } from "@/components/ai/ai-assistant"
 
 export default function HRAnalyticsPage() {
     return (
@@ -13,6 +14,10 @@ export default function HRAnalyticsPage() {
                 <GenericDashboardContent
                     title="Hiring Analytics"
                     description="View detailed reports and insights about your hiring process."
+                />
+                <AIAssistant 
+                    mode="general_hr_help" 
+                    placeholder="Ask me how to improve your hiring conversion rate or analyze industry trends..."
                 />
             </div>
         </div>
