@@ -97,7 +97,10 @@ interface JobState {
     getApplicationsByJob: (jobId: string) => Promise<Application[]>
     getApplicationsByOrg: (organisationId: string) => Promise<void>
     getCandidateApplications: (candidateId: string) => Promise<void>
-    submitApplication: (data: any) => Promise<Application | null>
+    uploadResume: (file: File, applicationId: string) => Promise<string | null>
+    deleteResume: (resumePath: string) => Promise<void>
+    getResumeSignedUrl: (resumePath: string) => Promise<string | null>
+    submitApplication: (data: any, resumeFile?: File) => Promise<Application | null>
     updateApplicationStatus: (id: string, status: string, comments?: string) => Promise<boolean>
     linkCandidateToApplication: (applicationId: string, candidateId: string) => Promise<boolean>
 }
@@ -223,7 +226,44 @@ export const useJobStore = create<JobState>((set, get) => ({
         }
     },
 
-    submitApplication: async (data) => {
+    uploadResume: async (file: File, applicationId: string) => {
+        try {
+            const path = `${applicationId}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`
+            const { error } = await supabase.storage
+                .from('resumes')
+                .upload(path, file, { contentType: 'application/pdf', upsert: false })
+            if (error) throw error
+            return path
+        } catch (err) {
+            console.error('Resume upload failed:', err)
+            return null
+        }
+    },
+
+    deleteResume: async (resumePath: string) => {
+        if (!resumePath || resumePath.startsWith('http')) return // skip old filename-only entries
+        try {
+            await supabase.storage.from('resumes').remove([resumePath])
+        } catch (err) {
+            console.error('Resume delete failed:', err)
+        }
+    },
+
+    getResumeSignedUrl: async (resumePath: string) => {
+        if (!resumePath || resumePath.startsWith('http') || !resumePath.includes('/')) return null
+        try {
+            const { data, error } = await supabase.storage
+                .from('resumes')
+                .createSignedUrl(resumePath, 3600) // 1 hour expiry
+            if (error) throw error
+            return data.signedUrl
+        } catch (err) {
+            console.error('Signed URL failed:', err)
+            return null
+        }
+    },
+
+    submitApplication: async (data, resumeFile?: File) => {
         set({ isLoading: true })
         try {
             // Prepare ATS result JSON
@@ -233,13 +273,14 @@ export const useJobStore = create<JobState>((set, get) => ({
                 tips: data.tips || []
             }
 
+            // Insert application first to get the ID
             const { data: app, error } = await supabase
                 .from('applications')
                 .insert([{
                     job_id: data.jobId,
                     candidate_name: data.candidateName,
                     candidate_email: data.candidateEmail,
-                    resume_url: data.resumeUrl,
+                    resume_url: data.resumeUrl || '',
                     ats_score: data.atsScore,
                     ats_result: atsResult,
                     status: 'pending'
@@ -248,6 +289,20 @@ export const useJobStore = create<JobState>((set, get) => ({
                 .single()
 
             if (error) throw error
+
+            // Upload actual resume PDF if provided
+            if (resumeFile && app) {
+                const { uploadResume } = get()
+                const path = await uploadResume(resumeFile, app.id)
+                if (path) {
+                    await supabase
+                        .from('applications')
+                        .update({ resume_url: path })
+                        .eq('id', app.id)
+                    app.resume_url = path
+                }
+            }
+
             return mapApplication(app)
         } catch (err) {
             console.error(err)
@@ -306,6 +361,14 @@ export const useJobStore = create<JobState>((set, get) => ({
                 .eq('id', id)
 
             if (error) throw error
+
+            // Auto-delete resume from storage when application reaches a final state
+            if (status === 'hired' || status === 'rejected') {
+                const app = get().applications.find(a => a.id === id)
+                if (app?.resumeUrl) {
+                    get().deleteResume(app.resumeUrl)
+                }
+            }
 
             // Update local state
             set(state => ({
