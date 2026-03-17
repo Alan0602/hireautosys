@@ -2,6 +2,7 @@
 
 import { create } from 'zustand'
 import { supabase } from '@/lib/supabase'
+import bcrypt from 'bcryptjs'
 
 // Types
 export type UserRole = 'admin' | 'hr' | 'team_lead' | 'candidate'
@@ -38,11 +39,21 @@ interface AuthState {
     candidateSignup: (email: string, password: string) => Promise<AuthUser | null>
 }
 
+// Helper to set a session cookie readable by Next.js middleware
+function setSessionCookie(userId: string) {
+    document.cookie = `hs_user_id=${userId}; path=/; SameSite=Strict; max-age=86400`
+}
+
+// Helper to clear the session cookie on logout
+function clearSessionCookie() {
+    document.cookie = 'hs_user_id=; path=/; SameSite=Strict; max-age=0'
+}
+
 // Helper to map DB user to App user
 const mapUser = (dbUser: any, orgId: string): AuthUser => ({
     id: dbUser.id,
     username: dbUser.username,
-    name: dbUser.username, // Using username as name for now if name field missing in DB or strict schema
+    name: dbUser.username,
     email: dbUser.email,
     role: dbUser.role as UserRole,
     organisationId: orgId,
@@ -50,34 +61,27 @@ const mapUser = (dbUser: any, orgId: string): AuthUser => ({
 
 export const useAuthStore = create<AuthState>((set, get) => ({
     currentUser: null,
-    users: [], // List of users in org (for admin/hr)
+    users: [],
     organisation: null,
     isAuthenticated: false,
     isLoading: true,
 
     checkSession: async () => {
         set({ isLoading: true })
-        console.log("AuthStore: Checking session...")
         try {
             const storedUserId = localStorage.getItem('hs_user_id')
             if (storedUserId) {
-                console.log("AuthStore: Found stored user ID:", storedUserId)
                 const { data: user, error } = await supabase.from('users').select('*').eq('id', storedUserId).maybeSingle()
 
-                if (error) {
-                    console.error("AuthStore: Supabase fetch error in checkSession:", error)
-                    throw error
-                }
+                if (error) throw error
 
                 if (user) {
-                    console.log("AuthStore: Session user found:", user.email)
                     if (user.role === 'candidate') {
                         set({
                             currentUser: mapUser(user, ''),
                             isAuthenticated: true
                         })
                     } else {
-                        // Fetch Org Link
                         const { data: link } = await supabase.from('organisation_users').select('organisation_id').eq('user_id', user.id).maybeSingle()
                         if (link) {
                             const { data: org } = await supabase.from('organisations').select('*').eq('id', link.organisation_id).single()
@@ -91,23 +95,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                         }
                     }
                 } else {
-                    console.warn("AuthStore: No user found for stored ID")
                     localStorage.removeItem('hs_user_id')
+                    clearSessionCookie()
                 }
-            } else {
-                console.log("AuthStore: No stored session found")
             }
         } catch (err) {
             console.error("AuthStore: checkSession failed:", err)
         } finally {
             set({ isLoading: false })
-            console.log("AuthStore: checkSession complete")
         }
     },
 
     getUsersByOrg: async (orgId: string) => {
         try {
-            // Get all users linked to this org
             const { data: links, error: linkError } = await supabase
                 .from('organisation_users')
                 .select('user_id')
@@ -147,15 +147,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
             if (orgError || !org) throw orgError
 
-            // 2. Create Admin User
-            // Note: Storing password as hash (simulated here for now or plain text if directed, strictly following schema)
-            // schema said "password_hash"
+            // 2. Hash password before storing — never store plain text
+            const passwordHash = await bcrypt.hash(adminPassword, 12)
+
+            // 3. Create Admin User
             const { data: user, error: userError } = await supabase
                 .from('users')
                 .insert([{
                     username: adminUsername,
-                    email: adminUsername, // reusing username as email for simplicity in this flow
-                    password_hash: adminPassword, // basic implementation
+                    email: adminUsername,
+                    password_hash: passwordHash,
                     role: 'admin',
                     is_active: true
                 }])
@@ -164,7 +165,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
             if (userError || !user) throw userError
 
-            // 3. Link User to Org
+            // 4. Link User to Org
             const { error: linkError } = await supabase
                 .from('organisation_users')
                 .insert([{ organisation_id: org.id, user_id: user.id }])
@@ -175,6 +176,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             const organisation = { id: org.id, name: org.name, createdAt: org.created_at }
 
             localStorage.setItem('hs_user_id', user.id)
+            setSessionCookie(user.id)
             set({ currentUser: authUser, organisation, isAuthenticated: true })
 
             return organisation
@@ -189,12 +191,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     login: async (username, password) => {
         set({ isLoading: true })
         try {
-            // 1. Find User
+            // 1. Find user by username or email (without comparing password in DB query)
             const { data: user, error } = await supabase
                 .from('users')
                 .select('*')
                 .or(`username.eq.${username},email.eq.${username}`)
-                .eq('password_hash', password) // basic check
+                .eq('is_active', true)
                 .maybeSingle()
 
             if (error || !user) {
@@ -202,7 +204,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 return null
             }
 
-            // 2. Get Org (if not candidate)
+            // 2. Securely compare password with bcrypt
+            const passwordMatch = await bcrypt.compare(password, user.password_hash)
+            if (!passwordMatch) {
+                set({ isLoading: false })
+                return null
+            }
+
+            // 3. Get Org (if not candidate)
             let orgId = ''
             let organisation = null
 
@@ -230,6 +239,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             const authUser = mapUser(user, orgId)
 
             localStorage.setItem('hs_user_id', user.id)
+            setSessionCookie(user.id)
             set({ currentUser: authUser, organisation, isAuthenticated: true })
 
             return authUser
@@ -243,6 +253,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     logout: async () => {
         localStorage.removeItem('hs_user_id')
+        clearSessionCookie()
         set({ currentUser: null, organisation: null, isAuthenticated: false })
     },
 
@@ -259,13 +270,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             const { data: existing } = await supabase.from('users').select('id').eq('username', username).single()
             if (existing) return null
 
-            // Create HR User
+            // Hash password before storing
+            const passwordHash = await bcrypt.hash(password, 12)
+
             const { data: user, error } = await supabase
                 .from('users')
                 .insert([{
                     username,
                     email: username,
-                    password_hash: password,
+                    password_hash: passwordHash,
                     role: 'hr',
                     is_active: true
                 }])
@@ -274,7 +287,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
             if (error || !user) throw error
 
-            // Link to Org
             await supabase.from('organisation_users').insert([{
                 organisation_id: organisation.id,
                 user_id: user.id
@@ -293,17 +305,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             // Check if exists
             const { data: existing } = await supabase.from('users').select('id').eq('email', email).single()
             if (existing) {
-                console.error("User already exists")
                 return null
             }
 
-            // Create Candidate User
+            // Hash password before storing
+            const passwordHash = await bcrypt.hash(password, 12)
+
             const { data: user, error } = await supabase
                 .from('users')
                 .insert([{
-                    username: email.split('@')[0], // Simple username from email
+                    username: email.split('@')[0],
                     email: email,
-                    password_hash: password,
+                    password_hash: passwordHash,
                     role: 'candidate',
                     is_active: true
                 }])
@@ -312,9 +325,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
             if (error || !user) throw error
 
-            const authUser = mapUser(user, '') // No org ID for candidate
+            const authUser = mapUser(user, '')
 
             localStorage.setItem('hs_user_id', user.id)
+            setSessionCookie(user.id)
             set({ currentUser: authUser, isAuthenticated: true })
 
             return authUser
