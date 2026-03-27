@@ -78,15 +78,23 @@ export default function JobApplicationPage() {
         setProcessingStep("Uploading resume...")
         await new Promise(r => setTimeout(r, 800))
 
-        // Step 2: Extracting text simulation
+        // Step 2: Extract real text from the PDF
         setProcessingStep("Extracting resume content...")
-        await new Promise(r => setTimeout(r, 600))
+        let resumeText = ""
+        try {
+            const fd = new FormData()
+            fd.append("file", resumeFile)
+            const parseRes = await fetch("/api/parse-resume", { method: "POST", body: fd })
+            const parsed = await parseRes.json()
+            resumeText = parsed.text || ""
+        } catch { resumeText = "" }
+        if (!resumeText || resumeText.length < 50) {
+            resumeText = `${resumeFile.name} candidate with experience in technology`
+        }
 
         // Step 3: ATS analysis
         setProcessingStep("Running AI analysis...")
-        // Use filename + job skills as mock resume text for AI analysis
-        const mockResumeText = `${resumeFile.name} experienced developer with skills in ${job.skills.slice(0, Math.ceil(job.skills.length * 0.6)).join(', ')} and other technologies`
-        const result = await analyzeApplication(job.skills, mockResumeText)
+        const result = await analyzeApplication(job.skills, resumeText)
         setAtsResult(result)
 
         // Determine pass/fail
@@ -244,6 +252,24 @@ export default function JobApplicationPage() {
                                             <Badge key={i} className="bg-green-500/20 text-green-300 border-green-500/30 text-xs">
                                                 {skill}
                                             </Badge>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {atsResult.partialSkills?.length > 0 && (
+                                <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                                    <p className="text-xs font-medium text-amber-400 uppercase tracking-wider mb-2 flex items-center gap-1">
+                                        <Sparkles className="h-3 w-3" /> Partial Match (Inferred)
+                                    </p>
+                                    <div className="space-y-2">
+                                        {atsResult.partialSkills.map((item, i) => (
+                                            <div key={i} className="flex items-start gap-2">
+                                                <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/30 text-xs shrink-0">
+                                                    {item.skill} · {item.confidence}%
+                                                </Badge>
+                                                <p className="text-xs text-slate-400 leading-relaxed">{item.reason}</p>
+                                            </div>
                                         ))}
                                     </div>
                                 </div>
