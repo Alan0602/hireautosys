@@ -1,7 +1,14 @@
 
+export interface PartialSkill {
+    skill: string
+    confidence: number
+    reason: string
+}
+
 export interface ATSResult {
     score: number
     skillsFound: string[]
+    partialSkills: PartialSkill[]
     missingSkills: string[]
     tips: string[]
     summary: string
@@ -80,6 +87,7 @@ export async function analyzeApplication(
         return {
             score,
             skillsFound,
+            partialSkills: [],
             missingSkills,
             tips,
             summary: `Candidate demonstrates ${status.toLowerCase()} potential with a ${score}% match rate. ${skillsFound.length}/${requiredSkills.length} required skills identified.`,
