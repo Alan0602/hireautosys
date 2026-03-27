@@ -111,20 +111,55 @@ export async function POST(req: Request) {
             case "resume_analysis":
                 systemInstruction = PERSONAS.ATS_EXPERT;
                 useJson = true;
-                prompt = `${systemInstruction}\nAnalyze this resume against the following required skills.
-                Required Skills: ${JSON.stringify(data.requiredSkills)}
-                Resume Text: ${data.resumeText}
+                prompt = `${systemInstruction}
 
-                Return a detailed JSON response exactly in this format:
-                {
-                  "score": number (0-100),
-                  "skillsFound": string[],
-                  "missingSkills": string[],
-                  "tips": string[],
-                  "summary": string,
-                  "status": "High Match" | "Medium Match" | "Low Match",
-                  "semanticAnalysis": "A paragraph explaining why the candidate is or isn't a good fit."
-                }`;
+You are performing a nuanced, semantic ATS analysis. You MUST go beyond exact keyword matching and infer related knowledge from adjacent skills.
+
+## Semantic Skill Synonym Rules
+Apply these rules when a required skill is not explicitly mentioned but a related skill IS present on the resume:
+- If resume has **Supabase** → infer **PostgreSQL** knowledge at 50–65% confidence (Supabase is built on top of PostgreSQL).
+- If resume has **Next.js** → infer **React.js** knowledge at 85–95% confidence (Next.js is a React framework).
+- If resume has **React.js** → infer **Next.js** awareness at 40–55% confidence.
+- If resume has **Playwright** → infer **Jest / testing** knowledge at 55–70% confidence.
+- If resume has **Tailwind CSS** → infer **CSS** proficiency at 80–90% confidence.
+- If resume has **Supabase Auth** or **JWT** → infer **authentication patterns** at 70% confidence.
+- If resume has **TypeScript** → infer **JavaScript** proficiency at 95% confidence.
+- If resume has **GraphQL** → infer **REST API** familiarity at 60–70% confidence.
+- If resume has **AWS / GCP / Azure** → infer **cloud infrastructure** knowledge at 75% confidence.
+- If resume has **Figma** → infer **UI/UX design awareness** at 65% confidence.
+- Apply similar semantic reasoning for any other clearly adjacent technology pairs you identify.
+
+## Scoring Algorithm
+Calculate the score as follows:
+1. For each required skill explicitly found in the resume: award **full points**.
+2. For each required skill inferred via semantic rules above: award **partial points** (points × confidence% ÷ 100).
+3. For each required skill completely absent (no direct or semantic match): award **0 points**.
+4. Final score = (total points earned / total possible points) × 100, rounded to nearest integer.
+
+## Required Skills to evaluate:
+${JSON.stringify(data.requiredSkills)}
+
+## Resume Text:
+${data.resumeText}
+
+## Output Format
+Return ONLY a valid JSON object with NO markdown, no code fences, no explanation outside JSON. Use exactly this shape:
+{
+  "score": number (0-100),
+  "skillsFound": ["list of required skills explicitly found in the resume"],
+  "partialSkills": [
+    {
+      "skill": "required skill name",
+      "confidence": number (0-100),
+      "reason": "one sentence explaining the semantic inference"
+    }
+  ],
+  "missingSkills": ["required skills with no direct or indirect evidence in the resume"],
+  "tips": ["3-5 actionable tips for the candidate to improve their ATS score for this role"],
+  "summary": "2-3 sentence overall summary of the candidate's fit",
+  "status": "High Match" | "Medium Match" | "Low Match",
+  "semanticAnalysis": "A paragraph explaining the semantic skill inferences made and why the candidate is or isn't a good fit beyond exact keyword matching."
+}`;
                 break;
 
             case "job_description":
