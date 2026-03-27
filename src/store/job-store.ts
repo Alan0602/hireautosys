@@ -48,10 +48,9 @@ const mapJob = (dbJob: any): Job => ({
     orgName: dbJob.organisations?.name || 'Unknown Company', // Handle join
     slug: dbJob.slug,
     title: dbJob.title,
-    // Provide defaults for fields not explicitly in the minimal DB schema requested but used in UI
-    department: 'Engineering', // Default/Placeholder as unrelated to schema prompt
-    location: 'Remote',       // Default/Placeholder
-    experience: 'Mid-Senior', // Default/Placeholder
+    department: dbJob.department || 'Engineering',
+    location: dbJob.location || 'Remote',
+    experience: dbJob.experience || '',
     skills: dbJob.skills || [],
     description: dbJob.description,
     responsibilities: dbJob.responsibilities || [],
@@ -146,7 +145,10 @@ export const useJobStore = create<JobState>((set, get) => ({
                     ats_threshold: data.atsThreshold,
                     expiry_date: data.expiryDate,
                     status: 'active',
-                    slug: slug
+                    slug: slug,
+                    department: data.department,
+                    location: data.location,
+                    experience: data.experience
                 }])
                 .select()
                 .single()
