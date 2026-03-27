@@ -299,6 +299,29 @@ export default function ApplicationReviewPage() {
                                         {application.missingSkills.length === 0 && <li>No missing skills identified.</li>}
                                     </ul>
                                 </div>
+                                <div>
+                                    <h4 className="font-semibold mb-2">AI Recommendation</h4>
+                                    <div className={`p-4 rounded-lg border ${
+                                        application.atsScore >= 80
+                                            ? 'bg-green-500/10 border-green-500/30'
+                                            : application.atsScore >= 60
+                                                ? 'bg-yellow-500/10 border-yellow-500/30'
+                                                : 'bg-red-500/10 border-red-500/30'
+                                    }`}>
+                                        <p className={`text-lg font-bold ${
+                                            application.atsScore >= 80 ? 'text-green-500'
+                                            : application.atsScore >= 60 ? 'text-yellow-500'
+                                            : 'text-red-500'
+                                        }`}>
+                                            {application.atsScore >= 80 ? 'Strong Hire'
+                                             : application.atsScore >= 60 ? 'Consider'
+                                             : 'Not Recommended'}
+                                        </p>
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                            Score: {application.atsScore}% — Threshold: {jobs.find(j => j.id === application.jobId)?.atsThreshold ?? 70}%
+                                        </p>
+                                    </div>
+                                </div>
                             </CardContent>
                         </Card>
                     </div>
