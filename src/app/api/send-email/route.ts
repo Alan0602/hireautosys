@@ -1,5 +1,5 @@
 import { Resend } from 'resend';
-import { createServerClient } from '@supabase/ssr';
+import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 import { buildHtmlTemplate, buildTextTemplate } from '@/lib/emailTemplates';
@@ -8,31 +8,26 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(req: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
+    const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      {
-        cookies: {
-          getAll() {
-            return cookieStore.getAll();
-          },
-          setAll(cookiesToSet) {
-            try {
-              cookiesToSet.forEach(({ name, value, options }) =>
-                cookieStore.set(name, value, options)
-              );
-            } catch {
-              // Ignore in API routes
-            }
-          },
-        },
-      }
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
-    // Auth Guard
-    const { data: { session }, error: authError } = await supabase.auth.getSession();
-    if (authError || !session) {
+    // Custom cookie-based auth (not Supabase Auth)
+    const cookieStore = await cookies();
+    const userId = cookieStore.get('hs_user_id')?.value;
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { data: authUser, error: authError } = await supabase
+      .from('users')
+      .select('id, role')
+      .eq('id', userId)
+      .eq('is_active', true)
+      .maybeSingle();
+
+    if (authError || !authUser || !['hr', 'admin'].includes(authUser.role)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -45,10 +40,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid or missing candidate email address.' }, { status: 400 });
     }
 
-    // Guard: check if email already sent
+    // Guard: check if email already sent for this specific email type
     const { data: app, error: queryError } = await supabase
       .from('applications')
-      .select('email_sent')
+      .select('email_sent, email_type')
       .eq('id', applicationId)
       .single();
 
@@ -57,15 +52,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Database query failed' }, { status: 500 });
     }
 
-    if (app?.email_sent) {
+    // Allow re-sending if the email type changed (e.g. selected → hired)
+    if (app?.email_sent && app?.email_type === status) {
       return NextResponse.json({ message: 'Email already sent' }, { status: 200 });
     }
 
-    const subject = status === 'selected'
-      ? "Congratulations! You've been selected"
-      : status === 'interview'
-      ? 'Interview Invitation'
-      : 'Application Update';
+    const subjects: Record<string, string> = {
+      selected: "Congratulations! You've been selected",
+      rejected: 'Application Update',
+      interview: 'Interview Invitation',
+      hired: '🎉 Welcome to the Team!',
+      admin_approved: 'Great News — Application Progressing',
+    };
+
+    const subject = subjects[status] || 'Application Update';
 
     const html = buildHtmlTemplate(candidateName, status);
     const text = buildTextTemplate(candidateName, status);
