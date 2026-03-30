@@ -113,8 +113,8 @@ export default function ApplicationReviewPage() {
             newStatus = 'hr_approve'
             emailType = 'selected'
         } else if (application.status === 'teamlead_approve') {
-            newStatus = 'ready_for_checkin'
-            emailType = 'interview'
+            newStatus = 'hired'
+            emailType = 'hired'
         }
 
         if (newStatus) {
@@ -235,7 +235,7 @@ export default function ApplicationReviewPage() {
                                 <div className="pt-2 border-t space-y-2">
                                     {application.status !== 'rejected' && application.status !== 'hired' && (
                                         <div className="grid grid-cols-2 gap-2">
-                                            {(application.status === 'pending' || application.status === 'teamlead_approve') && (
+                                            {application.status === 'pending' && (
                                                 <Button
                                                     variant="outline"
                                                     className="w-full text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-900/10"
@@ -243,28 +243,34 @@ export default function ApplicationReviewPage() {
                                                     disabled={isProcessing}
                                                 >
                                                     <ThumbsUp className="mr-2 h-4 w-4" />
-                                                    {application.status === 'pending' ? 'Approve' : 'Finalize'}
+                                                    Approve
                                                 </Button>
                                             )}
-                                            <Button
-                                                variant="outline"
-                                                className="w-full text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/10"
-                                                onClick={() => setIsRejectDialogOpen(true)}
-                                                disabled={isProcessing}
-                                            >
-                                                <ThumbsDown className="mr-2 h-4 w-4" /> Reject
-                                            </Button>
+                                            {application.status === 'pending' && (
+                                                <Button
+                                                    variant="outline"
+                                                    className="w-full text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/10"
+                                                    onClick={() => setIsRejectDialogOpen(true)}
+                                                    disabled={isProcessing}
+                                                >
+                                                    <ThumbsDown className="mr-2 h-4 w-4" /> Reject
+                                                </Button>
+                                            )}
                                         </div>
                                     )}
                                     {application.status === 'teamlead_approve' && (
                                         <Button
-                                            className="w-full"
-                                            variant="secondary"
-                                            onClick={() => updateApplicationStatus(application.id, 'ready_for_checkin')}
+                                            className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+                                            onClick={handleAccept}
                                             disabled={isProcessing}
                                         >
-                                            <Calendar className="mr-2 h-4 w-4" /> Schedule Interview
+                                            🎉 Finalize / Mark as Hired
                                         </Button>
+                                    )}
+                                    {application.status === 'hired' && (
+                                        <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-md text-sm text-green-800 dark:text-green-200 text-center">
+                                            ✅ <strong>This candidate has been hired!</strong>
+                                        </div>
                                     )}
                                 </div>
 

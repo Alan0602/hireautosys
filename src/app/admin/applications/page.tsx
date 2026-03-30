@@ -8,16 +8,18 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { useJobStore, Application } from "@/store/job-store"
 import { useAuthStore } from "@/store/auth-store"
-import { Search, Check, X, FileText, Download, ExternalLink } from "lucide-react"
+import { Search, Check, X, FileText, Download, ExternalLink, Clock, CheckCircle2, Trophy } from "lucide-react"
+import { toast } from "sonner"
 
 export default function AdminApplicationsPage() {
     const router = useRouter()
     const { currentUser } = useAuthStore()
     const { applications, getApplicationsByOrg, updateApplicationStatus, getResumeSignedUrl, isLoading } = useJobStore()
     const [searchTerm, setSearchTerm] = useState("")
-    const [filterStatus, setFilterStatus] = useState<string>('all')
+    const [processingId, setProcessingId] = useState<string | null>(null)
 
     // Resume preview state
     const [previewApp, setPreviewApp] = useState<Application | null>(null)
@@ -30,8 +32,47 @@ export default function AdminApplicationsPage() {
         }
     }, [currentUser, getApplicationsByOrg])
 
-    const handleUpdateStatus = async (appId: string, status: any) => {
-        await updateApplicationStatus(appId, status)
+    const triggerEmail = async (app: Application, emailType: string) => {
+        try {
+            const res = await fetch('/api/send-email', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    applicationId: app.id,
+                    candidateName: app.candidateName,
+                    candidateEmail: app.candidateEmail,
+                    status: emailType
+                })
+            })
+            if (!res.ok) throw new Error('Email send failed')
+            toast.success("Email sent to candidate.")
+        } catch {
+            toast.error("Status updated, but email failed to send.")
+        }
+    }
+
+    const handleAdminApprove = async (app: Application) => {
+        setProcessingId(app.id)
+        try {
+            const success = await updateApplicationStatus(app.id, 'teamlead_approve')
+            if (success) {
+                await triggerEmail(app, 'admin_approved')
+            }
+        } finally {
+            setProcessingId(null)
+        }
+    }
+
+    const handleAdminReject = async (app: Application) => {
+        setProcessingId(app.id)
+        try {
+            const success = await updateApplicationStatus(app.id, 'rejected')
+            if (success) {
+                await triggerEmail(app, 'rejected')
+            }
+        } finally {
+            setProcessingId(null)
+        }
     }
 
     const handlePreviewResume = async (app: Application) => {
@@ -46,21 +87,61 @@ export default function AdminApplicationsPage() {
         }
     }
 
-    const filteredApplications = applications.filter(app => {
-        const matchesSearch = app.candidateName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            app.candidateEmail.toLowerCase().includes(searchTerm.toLowerCase())
-        const matchesStatus = filterStatus === 'all' ? true : app.status === filterStatus
-        return matchesSearch && matchesStatus
-    })
-
-    // Sort: pending first
-    const sortedApplications = [...filteredApplications].sort((a, b) => {
-        if (a.status === 'pending' && b.status !== 'pending') return -1
-        if (a.status !== 'pending' && b.status === 'pending') return 1
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    })
-
     const hasResume = (app: Application) => app.resumeUrl && app.resumeUrl.includes('/')
+
+    const filtered = applications.filter(app =>
+        app.candidateName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        app.candidateEmail.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+
+    // Split by status for tabs
+    const awaitingAdmin = filtered.filter(a => a.status === 'hr_approve')
+    const approved = filtered.filter(a => a.status === 'teamlead_approve' || a.status === 'hired')
+    const rejected = filtered.filter(a => a.status === 'rejected')
+
+    const renderCard = (app: Application, actions: React.ReactNode | null) => (
+        <Card key={app.id} className="hover:shadow-md transition-shadow">
+            <CardContent className="p-4 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
+                        {app.candidateName.charAt(0)}
+                    </div>
+                    <div>
+                        <h4 className="font-semibold">{app.candidateName}</h4>
+                        <div className="text-sm text-muted-foreground flex items-center gap-2">
+                            <span>{app.candidateEmail}</span>
+                            <span>•</span>
+                            <span>ATS: <span className={app.atsScore >= 80 ? 'text-green-600 font-bold' : 'text-yellow-600'}>{app.atsScore}%</span></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                    <Badge variant={
+                        app.status === 'hired' ? 'success' :
+                            app.status === 'hr_approve' ? 'default' :
+                                app.status === 'rejected' ? 'destructive' :
+                                    app.status === 'teamlead_approve' ? 'outline' : 'secondary'
+                    }>
+                        {app.status.replace(/_/g, ' ').toUpperCase()}
+                    </Badge>
+
+                    {hasResume(app) && (
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handlePreviewResume(app)}
+                        >
+                            <FileText className="h-3.5 w-3.5 mr-1.5" />
+                            Resume
+                        </Button>
+                    )}
+
+                    {actions}
+                </div>
+            </CardContent>
+        </Card>
+    )
 
     return (
         <div className="flex min-h-screen">
@@ -79,88 +160,82 @@ export default function AdminApplicationsPage() {
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
                         </div>
-                        <div className="flex gap-2">
-                            <Button variant={filterStatus === 'all' ? 'primary' : 'outline'} onClick={() => setFilterStatus('all')} size="sm">All</Button>
-                            <Button variant={filterStatus === 'pending' ? 'primary' : 'outline'} onClick={() => setFilterStatus('pending')} size="sm" className="relative">
-                                Pending Approval
-                                {applications.filter(a => a.status === 'pending').length > 0 && (
-                                    <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full" />
+                    </div>
+
+                    <Tabs defaultValue="awaiting" className="w-full">
+                        <TabsList>
+                            <TabsTrigger value="awaiting" className="flex items-center gap-2">
+                                <Clock className="h-4 w-4" />
+                                Awaiting Approval
+                                {awaitingAdmin.length > 0 && (
+                                    <Badge variant="destructive" className="ml-1 h-5 px-1.5 text-xs">{awaitingAdmin.length}</Badge>
                                 )}
-                            </Button>
-                        </div>
-                    </div>
+                            </TabsTrigger>
+                            <TabsTrigger value="approved" className="flex items-center gap-2">
+                                <CheckCircle2 className="h-4 w-4" />
+                                Approved / Hired
+                                <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">{approved.length}</Badge>
+                            </TabsTrigger>
+                            <TabsTrigger value="rejected" className="flex items-center gap-2">
+                                <X className="h-4 w-4" />
+                                Rejected
+                                <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">{rejected.length}</Badge>
+                            </TabsTrigger>
+                        </TabsList>
 
-                    <div className="space-y-4">
-                        {sortedApplications.length > 0 ? (
-                            sortedApplications.map((app) => (
-                                <Card key={app.id} className="hover:shadow-md transition-shadow">
-                                    <CardContent className="p-4 flex items-center justify-between">
-                                        <div className="flex items-center gap-4">
-                                            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
-                                                {app.candidateName.charAt(0)}
-                                            </div>
-                                            <div>
-                                                <h4 className="font-semibold">{app.candidateName}</h4>
-                                                <div className="text-sm text-muted-foreground flex items-center gap-2">
-                                                    <span>{app.candidateEmail}</span>
-                                                    <span>•</span>
-                                                    <span>ATS: <span className={app.atsScore >= 80 ? 'text-green-600 font-bold' : 'text-yellow-600'}>{app.atsScore}%</span></span>
-                                                </div>
-                                            </div>
-                                        </div>
+                        {/* Awaiting Admin Approval (hr_approve) */}
+                        <TabsContent value="awaiting" className="space-y-4 mt-4">
+                            {awaitingAdmin.length > 0 ? (
+                                awaitingAdmin.map(app => renderCard(app, (
+                                    <div className="flex gap-2">
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                                            onClick={() => handleAdminReject(app)}
+                                            disabled={processingId === app.id}
+                                        >
+                                            <X className="h-4 w-4 mr-1" /> Reject
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            className="bg-green-600 hover:bg-green-700 text-white"
+                                            onClick={() => handleAdminApprove(app)}
+                                            disabled={processingId === app.id}
+                                        >
+                                            <Check className="h-4 w-4 mr-1" /> Approve
+                                        </Button>
+                                    </div>
+                                )))
+                            ) : (
+                                <div className="text-center py-12 text-muted-foreground">
+                                    No applications awaiting admin approval.
+                                </div>
+                            )}
+                        </TabsContent>
 
-                                        <div className="flex items-center gap-3">
-                                            <Badge variant={
-                                                app.status === 'hired' ? 'success' :
-                                                    app.status === 'hr_approve' ? 'default' :
-                                                        app.status === 'rejected' ? 'destructive' :
-                                                            app.status === 'pending' ? 'secondary' : 'outline'
-                                            }>
-                                                {app.status.replace(/_/g, ' ').toUpperCase()}
-                                            </Badge>
+                        {/* Approved / Hired */}
+                        <TabsContent value="approved" className="space-y-4 mt-4">
+                            {approved.length > 0 ? (
+                                approved.map(app => renderCard(app, null))
+                            ) : (
+                                <div className="text-center py-12 text-muted-foreground">
+                                    No approved or hired applications.
+                                </div>
+                            )}
+                        </TabsContent>
 
-                                            {/* Preview Resume Button */}
-                                            {hasResume(app) && (
-                                                <Button
-                                                    size="sm"
-                                                    variant="outline"
-                                                    onClick={() => handlePreviewResume(app)}
-                                                >
-                                                    <FileText className="h-3.5 w-3.5 mr-1.5" />
-                                                    Resume
-                                                </Button>
-                                            )}
-
-                                            {/* Admin Actions */}
-                                            {app.status === 'pending' && (
-                                                <div className="flex gap-2">
-                                                    <Button
-                                                        size="sm"
-                                                        variant="outline"
-                                                        className="text-red-500 hover:text-red-600 hover:bg-red-50"
-                                                        onClick={() => handleUpdateStatus(app.id, 'rejected')}
-                                                    >
-                                                        <X className="h-4 w-4 mr-1" /> Reject
-                                                    </Button>
-                                                    <Button
-                                                        size="sm"
-                                                        className="bg-green-600 hover:bg-green-700 text-white"
-                                                        onClick={() => handleUpdateStatus(app.id, 'hr_approve')}
-                                                    >
-                                                        <Check className="h-4 w-4 mr-1" /> Approve
-                                                    </Button>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            ))
-                        ) : (
-                            <div className="text-center py-12 text-muted-foreground">
-                                No applications found.
-                            </div>
-                        )}
-                    </div>
+                        {/* Rejected */}
+                        <TabsContent value="rejected" className="space-y-4 mt-4">
+                            {rejected.length > 0 ? (
+                                rejected.map(app => renderCard(app, null))
+                            ) : (
+                                <div className="text-center py-12 text-muted-foreground">
+                                    No rejected applications.
+                                </div>
+                            )}
+                        </TabsContent>
+                    </Tabs>
                 </main>
             </div>
 
@@ -173,7 +248,7 @@ export default function AdminApplicationsPage() {
                             <div className="flex items-center gap-3">
                                 <FileText className="h-5 w-5 text-primary" />
                                 <div>
-                                    <p className="font-semibold">{previewApp.candidateName}'s Resume</p>
+                                    <p className="font-semibold">{previewApp.candidateName}&apos;s Resume</p>
                                     <p className="text-xs text-muted-foreground">Secure preview — link expires in 1 hour</p>
                                 </div>
                             </div>
