@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { GoogleGenAI } from "@google/genai";
-import { createServerClient } from "@supabase/ssr";
+import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 
 // Persona-based prompting constants for HR modes
@@ -16,30 +16,30 @@ const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 
 export async function POST(req: Request) {
     try {
-        const cookieStore = await cookies();
-        const supabase = createServerClient(
+        const supabase = createClient(
             process.env.NEXT_PUBLIC_SUPABASE_URL!,
-            process.env.SUPABASE_SERVICE_ROLE_KEY!,
-            {
-                cookies: {
-                    getAll() { return cookieStore.getAll(); },
-                    setAll(cookiesToSet) {
-                        try {
-                            cookiesToSet.forEach(({ name, value, options }) =>
-                                cookieStore.set(name, value, options)
-                            );
-                        } catch {}
-                    },
-                },
-            }
+            process.env.SUPABASE_SERVICE_ROLE_KEY!
         );
 
-        const { data: { session }, error: authError } = await supabase.auth.getSession();
-        if (authError || !session) {
+        // Custom cookie-based auth (not Supabase Auth)
+        const cookieStore = await cookies();
+        const userId = cookieStore.get('hs_user_id')?.value;
+        if (!userId) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        const userId = session.user.id;
+        const { data: authUser, error: authError } = await supabase
+            .from('users')
+            .select('id, role')
+            .eq('id', userId)
+            .eq('is_active', true)
+            .maybeSingle();
+
+        if (authError || !authUser) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
+        // Rate limiting using verified userId
         const now = Date.now();
         const userRateLimit = rateLimitMap.get(userId);
 
@@ -56,6 +56,7 @@ export async function POST(req: Request) {
         } else {
             rateLimitMap.set(userId, { count: 1, resetTime: now + RATE_LIMIT_WINDOW_MS });
         }
+
 
         const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
         if (!apiKey) {
