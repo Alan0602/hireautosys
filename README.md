@@ -61,8 +61,8 @@ First, ensure you have set up your `.env.local` variables. You will need:
 Then, run the development server:
 
 ```bash
-npm install
-npm run dev
+pnpm install
+pnpm run dev
 # or
 pnpm dev
 ```
