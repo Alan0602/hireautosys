@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
     const text = buildTextTemplate(candidateName, status);
 
     const { error: resendError } = await resend.emails.send({
-      from: 'HireAutoSys <noreply@yourdomain.com>',
+      from: 'HireAutoSys <noreply@mail.johnsp.com>',
       to: candidateEmail,
       subject,
       html,

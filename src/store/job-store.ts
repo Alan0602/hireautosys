@@ -31,7 +31,7 @@ export interface Application {
     candidateEmail: string
     resumeUrl: string
     atsScore: number
-    status: 'pending' | 'hr_approve' | 'teamlead_approve' | 'ready_for_checkin' | 'rejected' | 'hired'
+    status: 'pending' | 'hr_approve' | 'teamlead_approve' | 'ready_for_checkin' | 'rejected' | 'ats_rejected' | 'hired'
     createdAt: string
     skillsFound: string[]
     missingSkills: string[]
@@ -285,7 +285,7 @@ export const useJobStore = create<JobState>((set, get) => ({
                     resume_url: data.resumeUrl || '',
                     ats_score: data.atsScore,
                     ats_result: atsResult,
-                    status: 'pending'
+                    status: data.status || 'pending'
                 }])
                 .select()
                 .single()

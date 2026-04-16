@@ -126,7 +126,8 @@ export default function HRDashboard() {
                                                     variant={
                                                         app.status === 'hired' ? 'success' :
                                                             app.status === 'rejected' ? 'destructive' :
-                                                                app.status === 'pending' ? 'warning' : 'info'
+                                                                app.status === 'ats_rejected' ? 'warning' :
+                                                                    app.status === 'pending' ? 'warning' : 'info'
                                                     }
                                                 >
                                                     {app.status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}

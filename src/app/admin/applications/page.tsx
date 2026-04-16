@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { useJobStore, Application } from "@/store/job-store"
 import { useAuthStore } from "@/store/auth-store"
-import { Search, Check, X, FileText, Download, ExternalLink, Clock, CheckCircle2, Trophy } from "lucide-react"
+import { Search, Check, X, FileText, Download, ExternalLink, Clock, CheckCircle2, Trophy, AlertTriangle } from "lucide-react"
 import { toast } from "sonner"
 
 export default function AdminApplicationsPage() {
@@ -98,6 +98,7 @@ export default function AdminApplicationsPage() {
     const awaitingAdmin = filtered.filter(a => a.status === 'hr_approve')
     const approved = filtered.filter(a => a.status === 'teamlead_approve' || a.status === 'hired')
     const rejected = filtered.filter(a => a.status === 'rejected')
+    const atsRejected = filtered.filter(a => a.status === 'ats_rejected')
 
     const renderCard = (app: Application, actions: React.ReactNode | null) => (
         <Card key={app.id} className="hover:shadow-md transition-shadow">
@@ -121,7 +122,8 @@ export default function AdminApplicationsPage() {
                         app.status === 'hired' ? 'success' :
                             app.status === 'hr_approve' ? 'default' :
                                 app.status === 'rejected' ? 'destructive' :
-                                    app.status === 'teamlead_approve' ? 'outline' : 'secondary'
+                                    app.status === 'ats_rejected' ? 'warning' :
+                                        app.status === 'teamlead_approve' ? 'outline' : 'secondary'
                     }>
                         {app.status.replace(/_/g, ' ').toUpperCase()}
                     </Badge>
@@ -166,7 +168,7 @@ export default function AdminApplicationsPage() {
                         <TabsList>
                             <TabsTrigger value="awaiting" className="flex items-center gap-2">
                                 <Clock className="h-4 w-4" />
-                                Awaiting Approval
+                                Passed — Awaiting Approval
                                 {awaitingAdmin.length > 0 && (
                                     <Badge variant="destructive" className="ml-1 h-5 px-1.5 text-xs">{awaitingAdmin.length}</Badge>
                                 )}
@@ -180,6 +182,11 @@ export default function AdminApplicationsPage() {
                                 <X className="h-4 w-4" />
                                 Rejected
                                 <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">{rejected.length}</Badge>
+                            </TabsTrigger>
+                            <TabsTrigger value="ats_rejected" className="flex items-center gap-2">
+                                <AlertTriangle className="h-4 w-4" />
+                                ATS Rejected
+                                <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">{atsRejected.length}</Badge>
                             </TabsTrigger>
                         </TabsList>
 
@@ -232,6 +239,17 @@ export default function AdminApplicationsPage() {
                             ) : (
                                 <div className="text-center py-12 text-muted-foreground">
                                     No rejected applications.
+                                </div>
+                            )}
+                        </TabsContent>
+
+                        {/* ATS Rejected */}
+                        <TabsContent value="ats_rejected" className="space-y-4 mt-4">
+                            {atsRejected.length > 0 ? (
+                                atsRejected.map(app => renderCard(app, null))
+                            ) : (
+                                <div className="text-center py-12 text-muted-foreground">
+                                    No ATS-rejected applications.
                                 </div>
                             )}
                         </TabsContent>

@@ -68,7 +68,7 @@ There are **no policies** defined on any of these tables.
 | `candidate_email`| `text` | NULL |
 | `resume_url` | `text` | NULL |
 | `ats_score` | `integer`| NULL |
-| `status` | `text` | FOREIGN KEY > `application_statuses.status`, default: `'pending'` |
+| `status` | `text` | FOREIGN KEY > `application_statuses.status`, default: `'pending'`. Values: `pending`, `hr_approve`, `teamlead_approve`, `ready_for_checkin`, `rejected`, `ats_rejected`, `hired` |
 | `created_at` | `timestamptz`| default: `now()` |
 | `ats_result` | `jsonb` | NULL |
 | `comments` | `text` | NULL |

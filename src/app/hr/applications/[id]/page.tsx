@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { useParams, useRouter } from "next/navigation"
-import { ArrowLeft, Download, ExternalLink, ThumbsUp, ThumbsDown, FileText, Calendar, X } from "lucide-react"
+import { ArrowLeft, Download, ExternalLink, ThumbsUp, ThumbsDown, FileText, Calendar, X, AlertTriangle } from "lucide-react"
 import { useJobStore, Application } from "@/store/job-store"
 import { useAuthStore } from "@/store/auth-store"
 import { DashboardSidebar } from "@/components/dashboard/sidebar"
@@ -277,6 +277,16 @@ export default function ApplicationReviewPage() {
                                 {application.status === 'rejected' && (
                                     <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 rounded-md text-sm text-red-800 dark:text-red-200">
                                         <strong>Rejected:</strong> {application.comments || "No reason provided."}
+                                    </div>
+                                )}
+
+                                {application.status === 'ats_rejected' && (
+                                    <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-md text-sm text-amber-800 dark:text-amber-200 flex items-start gap-2">
+                                        <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                                        <div>
+                                            <strong>ATS Rejected:</strong> This candidate scored below the ATS cutoff
+                                            but above 50% — saved for optional HR review.
+                                        </div>
                                     </div>
                                 )}
                             </CardContent>

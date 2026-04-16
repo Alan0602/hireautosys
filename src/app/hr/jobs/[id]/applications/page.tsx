@@ -91,7 +91,8 @@ export default function JobApplicationsPage() {
     )
 
     // Split into tabs
-    const passedApps = filteredApplications.filter(a => a.status !== 'rejected')
+    const passedApps = filteredApplications.filter(a => a.status !== 'rejected' && a.status !== 'ats_rejected')
+    const atsRejectedApps = filteredApplications.filter(a => a.status === 'ats_rejected')
     const rejectedApps = filteredApplications.filter(a => a.status === 'rejected')
 
     const renderApplicationCard = (app: Application, showActions: boolean) => (
@@ -203,12 +204,17 @@ export default function JobApplicationsPage() {
                         <TabsList>
                             <TabsTrigger value="passed" className="flex items-center gap-2">
                                 <CheckCircle2 className="h-4 w-4" />
-                                ATS Passed
+                                Passed Resumes
                                 <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">{passedApps.length}</Badge>
                             </TabsTrigger>
-                            <TabsTrigger value="rejected" className="flex items-center gap-2">
+                            <TabsTrigger value="ats_rejected" className="flex items-center gap-2">
                                 <AlertTriangle className="h-4 w-4" />
                                 ATS Rejected
+                                <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">{atsRejectedApps.length}</Badge>
+                            </TabsTrigger>
+                            <TabsTrigger value="rejected" className="flex items-center gap-2">
+                                <ThumbsDown className="h-4 w-4" />
+                                Rejected
                                 <Badge variant="destructive" className="ml-1 h-5 px-1.5 text-xs">{rejectedApps.length}</Badge>
                             </TabsTrigger>
                         </TabsList>
@@ -219,6 +225,43 @@ export default function JobApplicationsPage() {
                             ) : (
                                 <div className="text-center py-12 text-muted-foreground">
                                     No passed applications found.
+                                </div>
+                            )}
+                        </TabsContent>
+
+                        <TabsContent value="ats_rejected" className="space-y-4 mt-4">
+                            {atsRejectedApps.length > 0 ? (
+                                atsRejectedApps.map((app) => (
+                                    <Card key={app.id} className="hover:shadow-md transition-shadow cursor-pointer border-amber-200 dark:border-amber-800/40" onClick={() => router.push(`/hr/applications/${app.id}`)}>
+                                        <CardContent className="p-4 flex items-center justify-between">
+                                            <div className="flex items-center gap-4">
+                                                <div className="h-10 w-10 rounded-full bg-amber-100 dark:bg-amber-900/20 flex items-center justify-center text-amber-600 font-bold">
+                                                    {app.candidateName.charAt(0)}
+                                                </div>
+                                                <div>
+                                                    <h4 className="font-semibold">{app.candidateName}</h4>
+                                                    <div className="text-sm text-muted-foreground flex items-center gap-2">
+                                                        <span>{app.candidateEmail}</span>
+                                                        <span>•</span>
+                                                        <span>Score: <span className="text-amber-600 font-bold">{app.atsScore}%</span></span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-4">
+                                                <div className="text-right text-sm text-muted-foreground max-w-xs">
+                                                    {app.missingSkills.length > 0 && (
+                                                        <p className="truncate">Missing: {app.missingSkills.join(', ')}</p>
+                                                    )}
+                                                </div>
+                                                <Badge className="bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-700">ATS REJECTED</Badge>
+                                                <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                ))
+                            ) : (
+                                <div className="text-center py-12 text-muted-foreground">
+                                    No ATS-rejected applications.
                                 </div>
                             )}
                         </TabsContent>

@@ -97,28 +97,48 @@ export default function JobApplicationPage() {
         const result = await analyzeApplication(job.skills, resumeText)
         setAtsResult(result)
 
-        // Determine pass/fail
-        const didPass = result.score >= job.atsThreshold
-        setPassed(didPass)
+        // ── Three-tier ATS filtering ──
+        const cutoff = job.atsThreshold
+        const halfCutoff = cutoff * 0.5
 
-        setProcessingStep("Saving application...")
+        if (result.score >= cutoff) {
+            // ✅ PASS — save application + upload resume
+            setPassed(true)
+            setProcessingStep("Saving application...")
+            const app = await submitApplication({
+                jobId: job.id,
+                candidateName: email.split('@')[0],
+                candidateEmail: email,
+                resumeUrl: resumeFile.name,
+                atsScore: result.score,
+                skillsFound: result.skillsFound,
+                missingSkills: result.missingSkills,
+                tips: result.tips,
+                status: 'pending',
+            }, resumeFile)
+            if (app) setCreatedAppId(app.id)
 
-        // Save application — pass the actual resumeFile ONLY if the candidate passed
-        // This prevents wasting Supabase Storage space on rejected applications
-        const app = await submitApplication({
-            jobId: job.id,
-            candidateName: email.split('@')[0],
-            candidateEmail: email,
-            resumeUrl: didPass ? resumeFile.name : '', // fallback filename if passed, else empty
-            atsScore: result.score,
-            skillsFound: result.skillsFound,
-            missingSkills: result.missingSkills,
-            tips: result.tips,
-            status: didPass ? 'pending' : 'rejected',
-        }, didPass ? resumeFile : undefined) // Conditionally pass actual File for upload
+        } else if (result.score >= halfCutoff) {
+            // ⚠️ SOFT REJECT — save with ats_rejected status + upload resume
+            // HR can still review these borderline candidates
+            setPassed(false)
+            setProcessingStep("Saving application...")
+            const app = await submitApplication({
+                jobId: job.id,
+                candidateName: email.split('@')[0],
+                candidateEmail: email,
+                resumeUrl: resumeFile.name,
+                atsScore: result.score,
+                skillsFound: result.skillsFound,
+                missingSkills: result.missingSkills,
+                tips: result.tips,
+                status: 'ats_rejected',
+            }, resumeFile)
+            if (app) setCreatedAppId(app.id)
 
-        if (app) {
-            setCreatedAppId(app.id)
+        } else {
+            // 🚫 HARD REJECT — do NOT save anything to Supabase
+            setPassed(false)
         }
 
         setProcessingStep("")
