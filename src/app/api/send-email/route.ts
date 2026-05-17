@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: resendError.message }, { status: 500 });
     }
 
-    // Mark email as sent in Supabase
+    // Mark email as sent in Supabase (non-fatal — email already delivered)
     const { error: updateError } = await supabase
       .from('applications')
       .update({
@@ -93,8 +93,8 @@ export async function POST(req: NextRequest) {
       .eq('id', applicationId);
 
     if (updateError) {
-      console.error('Supabase update failed after sending email:', updateError);
-      return NextResponse.json({ error: 'Failed to update database tracking' }, { status: 500 });
+      // Email was sent successfully — only tracking update failed, don't return 500
+      console.warn('Email sent but failed to update tracking in DB:', updateError);
     }
 
     return NextResponse.json({ success: true });
