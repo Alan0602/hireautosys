@@ -17,6 +17,7 @@ export default function SetupPage() {
     const [orgName, setOrgName] = useState("")
     const [adminUsername, setAdminUsername] = useState("")
     const [adminPassword, setAdminPassword] = useState("")
+    const [error, setError] = useState<string | null>(null)
 
     useEffect(() => {
         checkSession()
@@ -27,15 +28,15 @@ export default function SetupPage() {
         if (!orgName.trim() || !adminUsername.trim() || !adminPassword.trim()) return
 
         setLoading(true)
-        // await new Promise((resolve) => setTimeout(resolve, 800))
+        setError(null)
 
         const result = await setup(orgName.trim(), adminUsername.trim(), adminPassword)
 
-        if (result) {
-            router.push("/hr/dashboard") // Setup logs in automatically
+        if (result && 'organisation' in result && result.organisation) {
+            router.push("/hr/dashboard")
         } else {
             setLoading(false)
-            // Show error (would need error state)
+            setError(result && 'error' in result ? result.error : 'Setup failed. Please try again.')
         }
     }
 
@@ -75,6 +76,11 @@ export default function SetupPage() {
 
                     <CardContent>
                         <form onSubmit={handleSetup} className="space-y-4">
+                            {error && (
+                                <div className="rounded-lg bg-red-500/10 border border-red-500/30 px-4 py-3 text-sm text-red-400">
+                                    {error}
+                                </div>
+                            )}
                             <div className="space-y-2">
                                 <Label htmlFor="orgName" className="text-white">Organisation Name</Label>
                                 <Input
