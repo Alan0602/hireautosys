@@ -32,7 +32,7 @@ interface AuthState {
     // Actions
     checkSession: () => Promise<void>
     getUsersByOrg: (orgId: string) => Promise<void>
-    setup: (orgName: string, adminUsername: string, adminPassword: string) => Promise<Organisation | null>
+    setup: (orgName: string, adminUsername: string, adminPassword: string) => Promise<{ organisation: Organisation; error?: never } | { organisation?: never; error: string } | null>
     login: (username: string, password: string) => Promise<AuthUser | null>
     logout: () => Promise<void>
     addHR: (name: string, password: string) => Promise<{ user: AuthUser; username: string } | null>
@@ -138,51 +138,33 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     setup: async (orgName, adminUsername, adminPassword) => {
         set({ isLoading: true })
         try {
-            // 1. Create Organisation
-            const { data: org, error: orgError } = await supabase
-                .from('organisations')
-                .insert([{ name: orgName }])
-                .select()
-                .maybeSingle()
+            // Call the server-side API route which uses the service role key
+            // to bypass Supabase RLS and perform the inserts securely
+            const response = await fetch('/api/setup', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ orgName, adminUsername, adminPassword }),
+            })
 
-            if (orgError || !org) throw orgError
+            const result = await response.json()
 
-            // 2. Hash password before storing — never store plain text
-            const passwordHash = await bcrypt.hash(adminPassword, 12)
+            if (!response.ok) {
+                return { error: result.error || 'Setup failed. Please try again.' }
+            }
 
-            // 3. Create Admin User
-            const { data: user, error: userError } = await supabase
-                .from('users')
-                .insert([{
-                    username: adminUsername,
-                    email: adminUsername,
-                    password_hash: passwordHash,
-                    role: 'admin',
-                    is_active: true
-                }])
-                .select()
-                .maybeSingle()
-
-            if (userError || !user) throw userError
-
-            // 4. Link User to Org
-            const { error: linkError } = await supabase
-                .from('organisation_users')
-                .insert([{ organisation_id: org.id, user_id: user.id }])
-
-            if (linkError) throw linkError
+            const { org, user } = result
 
             const authUser = mapUser(user, org.id)
-            const organisation = { id: org.id, name: org.name, createdAt: org.created_at }
+            const organisation = { id: org.id, name: org.name, createdAt: org.createdAt }
 
             localStorage.setItem('hs_user_id', user.id)
             setSessionCookie(user.id)
             set({ currentUser: authUser, organisation, isAuthenticated: true })
 
-            return organisation
+            return { organisation }
         } catch (error) {
             console.error("Setup failed:", error)
-            return null
+            return { error: 'An unexpected error occurred. Please try again.' }
         } finally {
             set({ isLoading: false })
         }
